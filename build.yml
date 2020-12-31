@@ -1,0 +1,58 @@
+---
+
+- hosts: all
+  vars_prompt:
+    - name: root_password
+      prompt: Server's desired root password
+      private: yes
+  become: yes
+
+  tasks:
+    - name: set root passwd
+      user:
+        name: root
+        update_password: always
+        password: "{{ root_password | password_hash('sha512') }}"
+      when: root_password != ''
+
+    - name: install basic needed RPMs
+      package:
+        name:
+          - vim
+          - tree
+        state: latest
+
+    - name: install podman
+      package:
+        name: podman
+        state: latest
+
+    - name: create media group
+      group:
+        name: media
+        state: present
+
+    - name: create usenet user
+      user:
+        name: usenet
+        groups: media
+        state: present
+        password: "{{ 'usenet' | password_hash('sha512') }}"
+        update_password: on_create
+
+    # komidore64 should already exist by this point
+    - name: add komidore64 to media group
+      user:
+        name: komidore64
+        groups:
+          - wheel
+          - media
+        state: present
+
+    - name: create /var/media
+      file:
+        path: /var/media
+        state: directory
+        owner: root
+        group: media
+        mode: u=rwx,g=rwxs,o=rx
