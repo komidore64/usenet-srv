@@ -9,7 +9,6 @@
       private: yes
 
   vars:
-    system_owner: komidore64
     usenet_user: usenet
     media:
       path: /var/media
@@ -57,10 +56,10 @@
         password: "{{ 'usenet' | password_hash('sha512') }}"
         update_password: on_create
 
-    # system_owner should already be present on the system from OS installation
-    - name: Add {{ system_owner }} to {{ media.group }} group
+    # ansible_user should already be present on the system from OS installation
+    - name: Add ansible_user to {{ media.group }} group
       user:
-        name: "{{ system_owner }}"
+        name: "{{ ansible_user }}"
         groups:
           - wheel
           - "{{ media.group }}"
@@ -73,6 +72,18 @@
         owner: root
         group: "{{ media.group }}"
         mode: u=rwx,g=rwxs,o=rx
+
+    - name: Check Buildah for stale NZBGet container
+      shell: |
+        buildah containers --format '{{ '{{' }}.ContainerName{{ '}}' }}'
+      become_user: "{{ usenet_user }}"
+      register: preexisting_nzbget_container
+
+    - name: Remove stale NZBGet working container if present
+      shell: |
+        buildah rm {{ nzbget.workingcon }}
+      become_user: "{{ usenet_user }}"
+      when: "nzbget.workingcon in preexisting_nzbget_container.stdout_lines"
 
     - name: Start a working container to build NZBGet image
       shell: |
