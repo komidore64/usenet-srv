@@ -1,58 +1,75 @@
+# vim: ft=yaml.ansible
 ---
 
 - hosts: all
+
   vars_prompt:
     - name: root_password
       prompt: Server's desired root password
       private: yes
+
+  vars:
+    system_owner: komidore64
+    usenet_user: usenet
+    media:
+      path: /var/media
+      group: media
+    nzbget:
+      installer:
+        url: https://nzbget.net/download/nzbget-latest-bin-linux.run
+      base_image: registry.access.redhat.com/ubi8/ubi-minimal:latest
+      workingcon: nzbget-working-container
+
   become: yes
 
   tasks:
-    - name: set root passwd
+    - name: Set root passwd
       user:
         name: root
         update_password: always
         password: "{{ root_password | password_hash('sha512') }}"
       when: root_password != ''
 
-    - name: install basic needed RPMs
+    - name: Install podman and buildah
+      package:
+        name:
+          - podman
+          - buildah
+        state: latest
+
+    - name: Install packages helpful for debugging
       package:
         name:
           - vim
           - tree
-        state: latest
-
-    - name: install podman
-      package:
-        name: podman
-        state: latest
-
-    - name: create media group
-      group:
-        name: media
         state: present
 
-    - name: create usenet user
+    - name: Create {{ media.group }} group
+      group:
+        name: "{{ media.group }}"
+        state: present
+
+    - name: Create {{ usenet_user }} user
       user:
-        name: usenet
-        groups: media
+        name: "{{ usenet_user }}"
+        groups: "{{ media.group }}"
         state: present
         password: "{{ 'usenet' | password_hash('sha512') }}"
         update_password: on_create
 
-    # komidore64 should already exist by this point
-    - name: add komidore64 to media group
+    # system_owner should already be present on the system from OS installation
+    - name: Add {{ system_owner }} to {{ media.group }} group
       user:
-        name: komidore64
+        name: "{{ system_owner }}"
         groups:
           - wheel
-          - media
+          - "{{ media.group }}"
         state: present
 
-    - name: create /var/media
+    - name: Create {{ media.path }} path
       file:
-        path: /var/media
+        path: "{{ media.path }}"
         state: directory
         owner: root
-        group: media
+        group: "{{ media.group }}"
         mode: u=rwx,g=rwxs,o=rx
