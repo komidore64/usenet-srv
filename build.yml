@@ -73,3 +73,22 @@
         owner: root
         group: "{{ media.group }}"
         mode: u=rwx,g=rwxs,o=rx
+
+    - name: Start a working container to build NZBGet image
+      shell: |
+        buildah from --name {{ nzbget.workingcon }} {{ nzbget.base_image }}
+      become_user: "{{ usenet_user }}"
+
+    - name: Download NZBGet installer
+      get_url:
+        url: "{{ nzbget.installer.url }}"
+        dest: /home/{{ usenet_user }}/nzbget-installer.sh
+      become_user: "{{ usenet_user }}"
+
+    - name: Run NZBGet installer
+      shell: |
+        buildah unshare --mount conpath={{ nzbget.workingcon }} /bin/bash -c '
+          mkdir -p ${conpath}/app/nzbget
+          sh ${HOME}/nzbget-installer.sh --destdir ${conpath}/app/nzbget/
+        '
+      become_user: "{{ usenet_user }}"
