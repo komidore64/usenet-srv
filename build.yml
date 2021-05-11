@@ -73,13 +73,13 @@
         group: "{{ media.group }}"
         mode: u=rwx,g=rwxs,o=rx
 
-    - name: Check Buildah for stale NZBGet container
+    - name: Check for stale NZBGet working container
       shell: |
         buildah containers --format '{{ '{{' }}.ContainerName{{ '}}' }}'
       become_user: "{{ usenet_user }}"
       register: preexisting_nzbget_container
 
-    - name: Remove stale NZBGet working container if present
+    - name: Destroy stale NZBGet working container if present
       shell: |
         buildah rm {{ nzbget.workingcon }}
       become_user: "{{ usenet_user }}"
@@ -98,8 +98,16 @@
 
     - name: Run NZBGet installer
       shell: |
-        buildah unshare --mount conpath={{ nzbget.workingcon }} /bin/bash -c '
-          mkdir -p ${conpath}/app/nzbget
-          sh ${HOME}/nzbget-installer.sh --destdir ${conpath}/app/nzbget/
+        buildah unshare --mount con={{ nzbget.workingcon }} /bin/bash -c '
+          mkdir -p ${con}/app/nzbget
+
+          sh ${HOME}/nzbget-installer.sh --destdir ${con}/app/nzbget/
         '
       become_user: "{{ usenet_user }}"
+
+#     - name: NZBGet post-installation
+#       shell: |
+#         buildah unshare --mount con={{ nzbget.workingcon }} /bin/bash -c '
+#           mv ${con}/app/nzbget/nzbget.conf{,.ORIG}
+#           mkdir ${con}/app/nzbget/
+#         '
